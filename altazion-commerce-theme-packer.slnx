@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Altazion.Commerce.ThemePackager/Altazion.Commerce.ThemePackager.csproj" />
+  </Folder>
+</Solution>

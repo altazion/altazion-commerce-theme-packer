@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>altazion-theme-pack</ToolCommandName>
+    <PackageId>Altazion.Commerce.ThemePackager</PackageId>
+    <Company>Altazion</Company>
+    <Product>Altazion Commerce Theme Tooling</Product>
+    <Title>Altazion Commerce Theme Packager</Title>
+    <Description>Creates Altazion Commerce .themepack archives from a source theme folder.</Description>
+    <Authors>Altazion</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>package-readme.md</PackageReadmeFile>
+    <PackageTags>altazion commerce theme themepack</PackageTags>
+    <PackageProjectUrl>https://github.com/altazion</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="package-readme.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
