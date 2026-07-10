@@ -10,11 +10,23 @@ internal static class ThemePackager
     {
         var sourceDirectory = ResolveSourceDirectory(options.SourceDirectory);
         var themeMetadata = ReadThemeMetadata(sourceDirectory);
+        var entries = CollectEntries(sourceDirectory);
+        ThemeSourceValidator.Validate(sourceDirectory, themeMetadata, entries);
+
+        if (options.IsDryRun)
+        {
+            return new ThemePackResult(
+                string.Empty,
+                0,
+                entries.Count,
+                themeMetadata.ThemeId,
+                themeMetadata.ThemeName);
+        }
+
         var outputFile = ResolveOutputFile(options.OutputFile, themeMetadata.ThemeName);
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputFile)!);
 
-        var entries = CollectEntries(sourceDirectory);
         var manifestJson = BuildManifestJson(sourceDirectory, entries, themeMetadata);
 
         if (File.Exists(outputFile))
@@ -64,19 +76,26 @@ internal static class ThemePackager
         if (!File.Exists(generalFilePath))
             throw new ThemePackagerException($"theme.general.json not found in '{sourceDirectory}'.");
 
-        using var stream = File.OpenRead(generalFilePath);
-        using var document = JsonDocument.Parse(stream);
+        try
+        {
+            using var stream = File.OpenRead(generalFilePath);
+            using var document = JsonDocument.Parse(stream);
 
-        if (!document.RootElement.TryGetProperty("theme", out var themeElement))
-            throw new ThemePackagerException("theme.general.json does not contain 'theme'.");
+            if (!document.RootElement.TryGetProperty("theme", out var themeElement))
+                throw new ThemePackagerException("theme.general.json does not contain 'theme'.");
 
-        var themeId = themeElement.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
-        var themeName = themeElement.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
+            var themeId = themeElement.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
+            var themeName = themeElement.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
 
-        if (string.IsNullOrWhiteSpace(themeId) || string.IsNullOrWhiteSpace(themeName))
-            throw new ThemePackagerException("theme.general.json must contain valid theme.id and theme.name values.");
+            if (string.IsNullOrWhiteSpace(themeId) || !Guid.TryParse(themeId, out _) || string.IsNullOrWhiteSpace(themeName))
+                throw new ThemePackagerException("theme.general.json must contain valid theme.id and theme.name values.");
 
-        return new ThemeMetadata(themeId, themeName);
+            return new ThemeMetadata(themeId, themeName);
+        }
+        catch (JsonException ex)
+        {
+            throw new ThemePackagerException($"theme.general.json is not valid JSON: {ex.Message}");
+        }
     }
 
     private static string ResolveOutputFile(string? outputFile, string themeName)
@@ -86,7 +105,7 @@ internal static class ThemePackager
 
         var distDirectory = Path.Combine(Directory.GetCurrentDirectory(), "dist");
         var safeThemeName = string.Concat(themeName.Select(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' ? ch : '_'));
-        var fileName = $"{safeThemeName}-{DateTime.UtcNow:yyyyMMdd}.themepack";
+        var fileName = $"{safeThemeName}-{DateTime.UtcNow:yyyyMMdd}.altztheme";
         return Path.Combine(distDirectory, fileName);
     }
 

@@ -1,11 +1,17 @@
 # altazion-commerce-theme-packer
 
-Dotnet tool for creating Altazion Commerce .themepack archives from a source theme folder.
+Dotnet tool for creating Altazion Commerce .altztheme archives from a source theme folder.
 
 ## Usage
 
 ```powershell
-altazion-theme-pack pack --source ./src --output ./dist/theme.themepack
+altazion-theme-pack pack --source ./src --output ./dist/theme.altztheme
+```
+
+To run the full validation suite without writing a .altztheme file:
+
+```powershell
+altazion-theme-pack pack --source ./src --dry-run
 ```
 
 The source folder must contain theme.general.json. Optional files such as theme.shared.json, theme.seo.json, theme.marketing.json, pages/*.json, menus/*.json and binary assets are included automatically.

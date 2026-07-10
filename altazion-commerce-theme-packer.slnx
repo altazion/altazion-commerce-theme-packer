@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Altazion.Commerce.ThemePackager/Altazion.Commerce.ThemePackager.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Altazion.Commerce.ThemePackager.Tests/Altazion.Commerce.ThemePackager.Tests.csproj" />
+  </Folder>
 </Solution>

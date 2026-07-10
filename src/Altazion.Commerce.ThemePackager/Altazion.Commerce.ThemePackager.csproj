@@ -11,11 +11,11 @@
     <Company>Altazion</Company>
     <Product>Altazion Commerce Theme Tooling</Product>
     <Title>Altazion Commerce Theme Packager</Title>
-    <Description>Creates Altazion Commerce .themepack archives from a source theme folder.</Description>
+    <Description>Creates Altazion Commerce .altztheme archives from a source theme folder.</Description>
     <Authors>Altazion</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>package-readme.md</PackageReadmeFile>
-    <PackageTags>altazion commerce theme themepack</PackageTags>
+    <PackageTags>altazion commerce theme altztheme</PackageTags>
     <PackageProjectUrl>https://github.com/altazion</PackageProjectUrl>
   </PropertyGroup>
 

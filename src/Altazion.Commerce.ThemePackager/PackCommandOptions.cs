@@ -6,10 +6,13 @@ internal sealed class PackCommandOptions
 
     public string? OutputFile { get; init; }
 
+    public bool IsDryRun { get; init; }
+
     public static PackCommandOptions Parse(string[] args)
     {
         string? sourceDirectory = null;
         string? outputFile = null;
+        var isDryRun = false;
 
         for (var index = 0; index < args.Length; index++)
         {
@@ -27,6 +30,10 @@ internal sealed class PackCommandOptions
                     outputFile = ReadValue(args, ref index, arg);
                     break;
 
+                case "--dry-run":
+                    isDryRun = true;
+                    break;
+
                 default:
                     throw new ThemePackagerException($"Unknown option '{arg}'.");
             }
@@ -39,6 +46,7 @@ internal sealed class PackCommandOptions
         {
             SourceDirectory = sourceDirectory,
             OutputFile = outputFile,
+            IsDryRun = isDryRun,
         };
     }
 

@@ -30,6 +30,15 @@ internal static class Program
             var options = PackCommandOptions.Parse(args.Skip(1).ToArray());
             var result = ThemePackager.Pack(options);
 
+            if (options.IsDryRun)
+            {
+                Console.WriteLine("Validation succeeded.");
+                Console.WriteLine($"Theme: {result.ThemeName} ({result.ThemeId})");
+                Console.WriteLine($"Files: {result.EntryCount} + manifest");
+                Console.WriteLine("Dry run: no archive produced.");
+                return 0;
+            }
+
             Console.WriteLine($"Pack created: {result.OutputPath}");
             Console.WriteLine($"Theme: {result.ThemeName} ({result.ThemeId})");
             Console.WriteLine($"Files: {result.EntryCount} + manifest");
@@ -62,12 +71,13 @@ internal static class Program
         Console.WriteLine("Altazion Commerce Theme Packager");
         Console.WriteLine();
         Console.WriteLine("Usage:");
-        Console.WriteLine("  altazion-theme-pack pack --source <path> [--output <file>]");
+        Console.WriteLine("  altazion-theme-pack pack --source <path> [--output <file>] [--dry-run]");
         Console.WriteLine("  altazion-theme-pack --version");
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  -s, --source   Source theme folder containing theme.general.json");
         Console.WriteLine("  -o, --output   Output .themepack file path");
+        Console.WriteLine("      --dry-run  Validate the theme without producing an archive");
         Console.WriteLine("  -h, --help     Show help");
     }
 }
