@@ -5,6 +5,8 @@ namespace Altazion.Commerce.ThemePackager;
 
 internal static class ThemeSourceValidator
 {
+    private const int MaxReusableComponentDepth = 3;
+
     private static readonly Regex DevThemeResourcePattern = new(
         "(?:(?<=^)|(?<=[\\s\"'=\\(]))/dev/theme/(?<path>[^\"'\\s?#<>]+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -149,6 +151,23 @@ internal static class ThemeSourceValidator
             ValidateThemeId(component, context, state);
             index++;
         }
+
+        index = 0;
+        foreach (var component in reusableComponents.EnumerateArray())
+        {
+            var context = $"{state.GetRelativePath(sharedPath)} reusableComponents[{index}]";
+            if (component.ValueKind == JsonValueKind.Object)
+            {
+                var componentId = TryReadGuid(component, "id", out var parsedComponentId)
+                    ? parsedComponentId
+                    : null;
+                ValidateReusableComponentDefinition(state, context, component, componentId);
+            }
+
+            index++;
+        }
+
+        ValidateReusableComponentGraph(state);
 
         ValidateLocalResourceReferences(state, sharedPath, root);
     }
@@ -343,14 +362,14 @@ internal static class ThemeSourceValidator
 
     private static void ValidateNodes(
         ValidationState state,
-        string relativePath,
+        string contextPrefix,
         JsonElement nodesElement,
         Dictionary<Guid, string> localNodeIds)
     {
         var index = 0;
         foreach (var node in nodesElement.EnumerateArray())
         {
-            var context = $"{relativePath} pageDefinition.nodes[{index}]";
+            var context = $"{contextPrefix}[{index}]";
             if (node.ValueKind != JsonValueKind.Object)
             {
                 state.Errors.Add($"{context} must be an object.");
@@ -406,7 +425,7 @@ internal static class ThemeSourceValidator
 
     private static void ValidateComposition(
         ValidationState state,
-        string relativePath,
+        string compositionContext,
         JsonElement compositionElement,
         IReadOnlyDictionary<Guid, string> localNodeIds,
         ISet<Guid> usedNodeIds)
@@ -417,7 +436,7 @@ internal static class ThemeSourceValidator
         var index = 0;
         foreach (var compositionEntry in compositionElement.EnumerateArray())
         {
-            var context = $"{relativePath} pageDefinition.composition[{index}]";
+            var context = $"{compositionContext}[{index}]";
             if (compositionEntry.ValueKind != JsonValueKind.Object)
             {
                 state.Errors.Add($"{context} must be an object.");
@@ -464,6 +483,136 @@ internal static class ThemeSourceValidator
 
             index++;
         }
+    }
+
+    private static void ValidateReusableComponentDefinition(
+        ValidationState state,
+        string context,
+        JsonElement component,
+        Guid? componentId)
+    {
+        var hasComponentType = TryReadNonEmptyString(component, "componentType", out _);
+        var hasNodes = component.TryGetProperty("nodes", out var nodesElement);
+        var hasComposition = component.TryGetProperty("composition", out var compositionElement);
+        var hasCompositeDefinition = hasNodes || hasComposition;
+
+        if (!hasComponentType && !hasCompositeDefinition)
+            state.Errors.Add($"{context} must define either componentType or nodes/composition.");
+
+        if (hasComponentType && hasCompositeDefinition)
+            state.Errors.Add($"{context} cannot combine componentType with nodes/composition.");
+
+        if (!hasCompositeDefinition)
+            return;
+
+        if (hasNodes && nodesElement.ValueKind != JsonValueKind.Array)
+        {
+            state.Errors.Add($"{context}.nodes must be an array when present.");
+            return;
+        }
+
+        if (hasComposition && compositionElement.ValueKind != JsonValueKind.Array)
+        {
+            state.Errors.Add($"{context}.composition must be an array when present.");
+            return;
+        }
+
+        var localNodeIds = new Dictionary<Guid, string>();
+        var usedNodeIds = new HashSet<Guid>();
+
+        if (hasNodes)
+            ValidateNodes(state, $"{context}.nodes", nodesElement, localNodeIds);
+
+        if (hasComposition)
+            ValidateComposition(state, $"{context}.composition", compositionElement, localNodeIds, usedNodeIds);
+
+        foreach (var localNode in localNodeIds)
+        {
+            if (!usedNodeIds.Contains(localNode.Key))
+                state.Errors.Add($"{localNode.Value} is never referenced from reusableComponent.composition.");
+        }
+
+        if (componentId is not { } parsedComponentId)
+            return;
+
+        if (!state.ReusableComponentReferences.TryGetValue(parsedComponentId, out var references))
+        {
+            references = new HashSet<Guid>();
+            state.ReusableComponentReferences[parsedComponentId] = references;
+        }
+
+        if (!hasNodes)
+            return;
+
+        foreach (var node in nodesElement.EnumerateArray())
+        {
+            if (node.ValueKind != JsonValueKind.Object)
+                continue;
+
+            if (!node.TryGetProperty("reference", out var referenceElement) || referenceElement.ValueKind != JsonValueKind.Object)
+                continue;
+
+            if (!referenceElement.TryGetProperty("reusableComponentId", out var componentIdElement) || componentIdElement.ValueKind != JsonValueKind.String)
+                continue;
+
+            if (!Guid.TryParse(componentIdElement.GetString(), out var referencedId) || referencedId == Guid.Empty)
+                continue;
+
+            references.Add(referencedId);
+        }
+    }
+
+    private static void ValidateReusableComponentGraph(ValidationState state)
+    {
+        var visitStates = new Dictionary<Guid, ReusableComponentVisitState>();
+
+        foreach (var componentId in state.ReusableComponents.Keys)
+            VisitComponent(componentId, 1, new List<Guid>());
+
+        void VisitComponent(Guid componentId, int depth, List<Guid> path)
+        {
+            if (depth > MaxReusableComponentDepth)
+            {
+                state.Errors.Add($"Shared component graph exceeds maximum depth of {MaxReusableComponentDepth}: {BuildSharedComponentPath(state, path, componentId)}.");
+                return;
+            }
+
+            if (visitStates.TryGetValue(componentId, out var existingState))
+            {
+                if (existingState == ReusableComponentVisitState.Visited)
+                    return;
+
+                state.Errors.Add($"Detected cyclic reference between shared components: {BuildSharedComponentPath(state, path, componentId)}.");
+                return;
+            }
+
+            visitStates[componentId] = ReusableComponentVisitState.Visiting;
+            path.Add(componentId);
+
+            if (state.ReusableComponentReferences.TryGetValue(componentId, out var references))
+            {
+                foreach (var referencedId in references)
+                {
+                    if (!state.ReusableComponents.ContainsKey(referencedId))
+                        continue;
+
+                    VisitComponent(referencedId, depth + 1, path);
+                }
+            }
+
+            path.RemoveAt(path.Count - 1);
+            visitStates[componentId] = ReusableComponentVisitState.Visited;
+        }
+    }
+
+    private static string BuildSharedComponentPath(ValidationState state, IEnumerable<Guid> path, Guid lastId)
+    {
+        return string.Join(
+            " -> ",
+            path.Concat(new[] { lastId }).Select(componentId =>
+                state.ReusableComponents.TryGetValue(componentId, out var context)
+                    ? context
+                    : componentId.ToString("D")));
     }
 
     private static void ValidateRoutes(ValidationState state, string relativePath, JsonElement routesElement)
@@ -627,6 +776,21 @@ internal static class ThemeSourceValidator
         return parsedGuid;
     }
 
+    private static bool TryReadGuid(JsonElement element, string propertyName, out Guid? value)
+    {
+        value = null;
+
+        if (!element.TryGetProperty(propertyName, out var propertyValue) || propertyValue.ValueKind != JsonValueKind.String)
+            return false;
+
+        var rawValue = propertyValue.GetString();
+        if (string.IsNullOrWhiteSpace(rawValue) || !Guid.TryParse(rawValue, out var parsedGuid))
+            return false;
+
+        value = parsedGuid;
+        return true;
+    }
+
     private static string? ReadRequiredNonEmptyString(JsonElement element, string propertyName, string context, ICollection<string> errors)
     {
         if (!element.TryGetProperty(propertyName, out var propertyValue))
@@ -738,6 +902,8 @@ internal static class ThemeSourceValidator
 
         public Dictionary<Guid, string> ReusableComponentRenderModes { get; } = new();
 
+        public Dictionary<Guid, HashSet<Guid>> ReusableComponentReferences { get; } = new();
+
         public Dictionary<string, string> PageImportKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<string, string> MenuCodes { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -750,5 +916,11 @@ internal static class ThemeSourceValidator
             => Path.GetRelativePath(SourceDirectory, filePath)
                 .Replace(Path.DirectorySeparatorChar, '/')
                 .Replace(Path.AltDirectorySeparatorChar, '/');
+    }
+
+    private enum ReusableComponentVisitState
+    {
+        Visiting = 0,
+        Visited = 1,
     }
 }

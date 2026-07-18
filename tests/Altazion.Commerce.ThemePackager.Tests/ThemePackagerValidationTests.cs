@@ -70,6 +70,50 @@ public sealed class ThemePackagerValidationTests
         StringAssert.Contains(exception.Message, "points to unknown shared component");
     }
 
+      [TestMethod]
+      public void Pack_accepts_recursive_shared_components_within_depth_limit()
+      {
+        using var theme = TemporaryTheme.Create(sharedJson: RecursiveSharedComponentsJson);
+
+        var outputFile = Path.Combine(theme.RootDirectory, "recursive-shared.altztheme");
+        var result = ThemePackager.Pack(new PackCommandOptions
+        {
+          SourceDirectory = theme.SourceDirectory,
+          OutputFile = outputFile,
+        });
+
+        Assert.AreEqual(outputFile, result.OutputPath);
+        Assert.IsTrue(File.Exists(outputFile));
+      }
+
+      [TestMethod]
+      public void Pack_rejects_cyclic_recursive_shared_components()
+      {
+        using var theme = TemporaryTheme.Create(sharedJson: CyclicSharedComponentsJson);
+
+        var exception = Assert.ThrowsException<ThemePackagerException>(() => ThemePackager.Pack(new PackCommandOptions
+        {
+          SourceDirectory = theme.SourceDirectory,
+          OutputFile = Path.Combine(theme.RootDirectory, "cyclic-shared.altztheme"),
+        }));
+
+        StringAssert.Contains(exception.Message, "cyclic reference between shared components");
+      }
+
+      [TestMethod]
+      public void Pack_rejects_recursive_shared_components_beyond_depth_limit()
+      {
+        using var theme = TemporaryTheme.Create(sharedJson: TooDeepSharedComponentsJson);
+
+        var exception = Assert.ThrowsException<ThemePackagerException>(() => ThemePackager.Pack(new PackCommandOptions
+        {
+          SourceDirectory = theme.SourceDirectory,
+          OutputFile = Path.Combine(theme.RootDirectory, "too-deep-shared.altztheme"),
+        }));
+
+        StringAssert.Contains(exception.Message, "exceeds maximum depth of 3");
+      }
+
     [TestMethod]
     public void Pack_rejects_unknown_route_target_definition()
     {
@@ -561,6 +605,235 @@ public sealed class ThemePackagerValidationTests
           "requestedRenderMode": "sharedFragment",
           "config": {
             "extraHtml": "<link rel='stylesheet' href='/dev/theme/theme.css' /><img src='/dev/theme/logo.svg' alt='Logo' />"
+          }
+        }
+      ]
+    }
+    """;
+
+    private const string RecursiveSharedComponentsJson = """
+    {
+      "reusableComponents": [
+        {
+          "id": "20000000-0000-0000-0000-000000000001",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Root composite",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "nodes": [
+            {
+              "id": "21000000-0000-0000-0000-000000000001",
+              "reference": {
+                "reusableComponentId": "20000000-0000-0000-0000-000000000002"
+              },
+              "requestedRenderMode": "sharedFragment",
+              "isActive": true
+            }
+          ],
+          "composition": [
+            {
+              "nodeId": "21000000-0000-0000-0000-000000000001",
+              "slot": "head",
+              "order": 10
+            }
+          ]
+        },
+        {
+          "id": "20000000-0000-0000-0000-000000000002",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Nested composite",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "nodes": [
+            {
+              "id": "21000000-0000-0000-0000-000000000002",
+              "reference": {
+                "reusableComponentId": "20000000-0000-0000-0000-000000000003"
+              },
+              "requestedRenderMode": "sharedFragment",
+              "isActive": true
+            }
+          ],
+          "composition": [
+            {
+              "nodeId": "21000000-0000-0000-0000-000000000002",
+              "slot": "head",
+              "order": 10
+            }
+          ]
+        },
+        {
+          "id": "20000000-0000-0000-0000-000000000003",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Leaf assets",
+          "componentType": "AltazionSdkHead",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "config": {
+            "extraHtml": "<link rel='stylesheet' href='/dev/theme/theme.css' /><img src='/dev/theme/logo.svg' alt='Logo' />"
+          }
+        }
+      ]
+    }
+    """;
+
+    private const string CyclicSharedComponentsJson = """
+    {
+      "reusableComponents": [
+        {
+          "id": "20000000-0000-0000-0000-000000000001",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Cycle A",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "nodes": [
+            {
+              "id": "21000000-0000-0000-0000-000000000011",
+              "reference": {
+                "reusableComponentId": "20000000-0000-0000-0000-000000000002"
+              },
+              "requestedRenderMode": "sharedFragment",
+              "isActive": true
+            }
+          ],
+          "composition": [
+            {
+              "nodeId": "21000000-0000-0000-0000-000000000011",
+              "slot": "head",
+              "order": 10
+            }
+          ]
+        },
+        {
+          "id": "20000000-0000-0000-0000-000000000002",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Cycle B",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "nodes": [
+            {
+              "id": "21000000-0000-0000-0000-000000000012",
+              "reference": {
+                "reusableComponentId": "20000000-0000-0000-0000-000000000001"
+              },
+              "requestedRenderMode": "sharedFragment",
+              "isActive": true
+            }
+          ],
+          "composition": [
+            {
+              "nodeId": "21000000-0000-0000-0000-000000000012",
+              "slot": "head",
+              "order": 10
+            }
+          ]
+        }
+      ]
+    }
+    """;
+
+    private const string TooDeepSharedComponentsJson = """
+    {
+      "reusableComponents": [
+        {
+          "id": "20000000-0000-0000-0000-000000000001",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Level 1",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "nodes": [
+            {
+              "id": "21000000-0000-0000-0000-000000000021",
+              "reference": {
+                "reusableComponentId": "20000000-0000-0000-0000-000000000002"
+              },
+              "requestedRenderMode": "sharedFragment",
+              "isActive": true
+            }
+          ],
+          "composition": [
+            {
+              "nodeId": "21000000-0000-0000-0000-000000000021",
+              "slot": "head",
+              "order": 10
+            }
+          ]
+        },
+        {
+          "id": "20000000-0000-0000-0000-000000000002",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Level 2",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "nodes": [
+            {
+              "id": "21000000-0000-0000-0000-000000000022",
+              "reference": {
+                "reusableComponentId": "20000000-0000-0000-0000-000000000003"
+              },
+              "requestedRenderMode": "sharedFragment",
+              "isActive": true
+            }
+          ],
+          "composition": [
+            {
+              "nodeId": "21000000-0000-0000-0000-000000000022",
+              "slot": "head",
+              "order": 10
+            }
+          ]
+        },
+        {
+          "id": "20000000-0000-0000-0000-000000000003",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Level 3",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "nodes": [
+            {
+              "id": "21000000-0000-0000-0000-000000000023",
+              "reference": {
+                "reusableComponentId": "20000000-0000-0000-0000-000000000004"
+              },
+              "requestedRenderMode": "sharedFragment",
+              "isActive": true
+            }
+          ],
+          "composition": [
+            {
+              "nodeId": "21000000-0000-0000-0000-000000000023",
+              "slot": "head",
+              "order": 10
+            }
+          ]
+        },
+        {
+          "id": "20000000-0000-0000-0000-000000000004",
+          "themeId": "10000000-0000-0000-0000-000000000001",
+          "tenantId": 0,
+          "name": "Level 4",
+          "componentType": "AltazionSdkHead",
+          "isActive": true,
+          "revision": 1,
+          "requestedRenderMode": "sharedFragment",
+          "config": {
+            "extraHtml": "<link rel='stylesheet' href='/dev/theme/theme.css' />"
           }
         }
       ]
