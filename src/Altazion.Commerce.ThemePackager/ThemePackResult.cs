@@ -5,4 +5,7 @@ internal sealed record ThemePackResult(
     long Size,
     int EntryCount,
     string ThemeId,
-    string ThemeName);
+    string ThemeName,
+    PackSourceKind SourceKind,
+    IReadOnlyList<string> GeneratedArtifacts,
+    IReadOnlyList<TemplatePackArtifact> TemplateArtifacts);

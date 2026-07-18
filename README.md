@@ -1,20 +1,51 @@
 # altazion-commerce-theme-packer
 
-Dotnet tool for creating Altazion Commerce .altztheme archives from a source theme folder.
+Dotnet tool for creating Altazion Commerce packages from either a theme source folder or a template source folder.
 
 ## Usage
+
+The packer auto-detects the source kind:
+
+- theme source: root folder contains theme.general.json
+- template source: root folder contains template.json
+
+If both files are present in the same source folder, the command fails because the source is ambiguous.
+
+### Pack a theme
 
 ```powershell
 altazion-theme-pack pack --source ./src --output ./dist/theme.altztheme
 ```
 
-To run the full validation suite without writing a .altztheme file:
+For a theme source, the generated package is a single .altztheme archive.
+
+The source folder must contain theme.general.json. Optional files such as theme.shared.json, theme.seo.json, theme.marketing.json, pages/*.json, menus/*.json and binary assets are included automatically.
+
+### Pack a template
+
+```powershell
+altazion-theme-pack pack --source ./src --output ./dist
+```
+
+For a template source, the generated output is one .altztemplate archive per profile declared in template.json.
+
+The source folder must contain template.json. Each profile must point to a folder containing at least:
+
+- profile.json
+- base/theme.general.json
+- an assets folder
+
+The generated archives follow the template package structure consumed by the Core-Business template installer.
+
+### Dry run
+
+To run validation without writing archives:
 
 ```powershell
 altazion-theme-pack pack --source ./src --dry-run
 ```
 
-The source folder must contain theme.general.json. Optional files such as theme.shared.json, theme.seo.json, theme.marketing.json, pages/*.json, menus/*.json and binary assets are included automatically.
+Dry run works for both source kinds.
 
 ## Build
 

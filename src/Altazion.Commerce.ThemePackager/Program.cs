@@ -33,16 +33,32 @@ internal static class Program
             if (options.IsDryRun)
             {
                 Console.WriteLine("Validation succeeded.");
-                Console.WriteLine($"Theme: {result.ThemeName} ({result.ThemeId})");
-                Console.WriteLine($"Files: {result.EntryCount} + manifest");
+                Console.WriteLine($"Source kind: {result.SourceKind}");
+                Console.WriteLine($"Source: {result.ThemeName} ({result.ThemeId})");
+                if (result.SourceKind == PackSourceKind.Template)
+                    Console.WriteLine($"Profiles: {result.TemplateArtifacts.Count}");
+                Console.WriteLine($"Files: {result.EntryCount} + manifests");
                 Console.WriteLine("Dry run: no archive produced.");
                 return 0;
             }
 
-            Console.WriteLine($"Pack created: {result.OutputPath}");
-            Console.WriteLine($"Theme: {result.ThemeName} ({result.ThemeId})");
-            Console.WriteLine($"Files: {result.EntryCount} + manifest");
-            Console.WriteLine($"Size: {Math.Round(result.Size / 1024d, 1)} KB");
+            if (result.SourceKind == PackSourceKind.Theme)
+            {
+                Console.WriteLine($"Pack created: {result.OutputPath}");
+                Console.WriteLine($"Theme: {result.ThemeName} ({result.ThemeId})");
+                Console.WriteLine($"Files: {result.EntryCount} + manifest");
+                Console.WriteLine($"Size: {Math.Round(result.Size / 1024d, 1)} KB");
+            }
+            else
+            {
+                Console.WriteLine($"Template packs created: {result.OutputPath}");
+                Console.WriteLine($"Template: {result.ThemeName} ({result.ThemeId})");
+                Console.WriteLine($"Profiles: {result.TemplateArtifacts.Count}");
+                foreach (var artifact in result.TemplateArtifacts)
+                    Console.WriteLine($"- {artifact.ProfileCode}: {artifact.OutputPath}");
+                Console.WriteLine($"Files: {result.EntryCount} + manifests");
+                Console.WriteLine($"Size: {Math.Round(result.Size / 1024d, 1)} KB");
+            }
             return 0;
         }
         catch (ThemePackagerException ex)
@@ -75,9 +91,9 @@ internal static class Program
         Console.WriteLine("  altazion-theme-pack --version");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  -s, --source   Source theme folder containing theme.general.json");
-        Console.WriteLine("  -o, --output   Output .themepack file path");
-        Console.WriteLine("      --dry-run  Validate the theme without producing an archive");
+        Console.WriteLine("  -s, --source   Source folder containing either theme.general.json or template.json");
+        Console.WriteLine("  -o, --output   Output file path for a theme source, or output directory for a template source");
+        Console.WriteLine("      --dry-run  Validate the source without producing archives");
         Console.WriteLine("  -h, --help     Show help");
     }
 }
