@@ -129,18 +129,39 @@ public sealed class ThemePackagerValidationTests
     }
 
     [TestMethod]
-    public void Pack_rejects_missing_local_dev_theme_resource()
+    public void Pack_ignores_missing_local_dev_theme_resource()
     {
         using var theme = TemporaryTheme.Create();
         File.Delete(Path.Combine(theme.SourceDirectory, "logo.svg"));
 
-        var exception = Assert.ThrowsException<ThemePackagerException>(() => ThemePackager.Pack(new PackCommandOptions
+      var outputFile = Path.Combine(theme.RootDirectory, "missing-resource.altztheme");
+      var result = ThemePackager.Pack(new PackCommandOptions
         {
             SourceDirectory = theme.SourceDirectory,
-            OutputFile = Path.Combine(theme.RootDirectory, "missing-resource.altztheme"),
-        }));
+        OutputFile = outputFile,
+      });
 
-        StringAssert.Contains(exception.Message, "references missing resource '/dev/theme/logo.svg'");
+      Assert.AreEqual(outputFile, result.OutputPath);
+      Assert.IsTrue(File.Exists(outputFile));
+    }
+
+    [TestMethod]
+    public void Pack_does_not_include_dev_files_in_archive()
+    {
+      using var theme = TemporaryTheme.Create();
+      var devDirectory = Path.Combine(theme.SourceDirectory, "dev", "theme");
+      Directory.CreateDirectory(devDirectory);
+      File.WriteAllText(Path.Combine(devDirectory, "sdk.js"), "development bundle");
+
+      var outputFile = Path.Combine(theme.RootDirectory, "without-dev-files.altztheme");
+      ThemePackager.Pack(new PackCommandOptions
+      {
+        SourceDirectory = theme.SourceDirectory,
+        OutputFile = outputFile,
+      });
+
+      using var archive = System.IO.Compression.ZipFile.OpenRead(outputFile);
+      Assert.IsFalse(archive.Entries.Any(entry => entry.FullName.Contains("dev/", StringComparison.OrdinalIgnoreCase)));
     }
 
   [TestMethod]

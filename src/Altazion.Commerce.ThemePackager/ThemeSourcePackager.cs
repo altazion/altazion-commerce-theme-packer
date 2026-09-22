@@ -134,6 +134,7 @@ internal static class ThemeSourcePackager
         foreach (var assetFile in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories)
                      .Where(path => !string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase))
                      .Where(path => !string.Equals(Path.GetFileName(path), ".gitignore", StringComparison.OrdinalIgnoreCase))
+                     .Where(path => !IsUnderDirectory(path, Path.Combine(sourceDirectory, "dev")))
                      .Where(path => !IsUnderDirectory(path, pagesDirectory))
                      .Where(path => !IsUnderDirectory(path, menusDirectory))
                      .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))

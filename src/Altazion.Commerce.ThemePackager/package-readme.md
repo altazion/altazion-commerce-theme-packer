@@ -20,6 +20,7 @@ The tool auto-detects the source kind from the root folder:
 - template.json produces one .altztemplate archive per declared profile
 
 For theme sources, optional shared, SEO, marketing, pages, menus and asset files are detected automatically and embedded in the generated package.
+Development-only files under `dev/` and `/dev/theme/...` runtime resource references are ignored and are not embedded in the package.
 
 For template sources, each profile must provide profile.json, a base folder with theme.general.json, and the assets referenced by the profile and its page variants.
 

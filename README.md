@@ -20,6 +20,7 @@ altazion-theme-pack pack --source ./src --output ./dist/theme.altztheme
 For a theme source, the generated package is a single .altztheme archive.
 
 The source folder must contain theme.general.json. Optional files such as theme.shared.json, theme.seo.json, theme.marketing.json, pages/*.json, menus/*.json and binary assets are included automatically.
+Development-only files under `dev/` and `/dev/theme/...` runtime resource references are ignored and are not included in the package.
 
 ### Pack a template
 

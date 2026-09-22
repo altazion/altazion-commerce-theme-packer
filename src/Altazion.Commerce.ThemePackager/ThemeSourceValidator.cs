@@ -7,10 +7,6 @@ internal static class ThemeSourceValidator
 {
     private const int MaxReusableComponentDepth = 3;
 
-    private static readonly Regex DevThemeResourcePattern = new(
-        "(?:(?<=^)|(?<=[\\s\"'=\\(]))/dev/theme/(?<path>[^\"'\\s?#<>]+)",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
     private static readonly Regex SlotNamePattern = new(
         "^[A-Za-z0-9_-]+$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -125,7 +121,6 @@ internal static class ThemeSourceValidator
         if (!root.TryGetProperty("reusableComponents", out var reusableComponents) || reusableComponents.ValueKind != JsonValueKind.Array)
         {
             state.Errors.Add($"{state.GetRelativePath(sharedPath)} must contain a 'reusableComponents' array.");
-            ValidateLocalResourceReferences(state, sharedPath, root);
             return;
         }
 
@@ -169,7 +164,6 @@ internal static class ThemeSourceValidator
 
         ValidateReusableComponentGraph(state);
 
-        ValidateLocalResourceReferences(state, sharedPath, root);
     }
 
     private static void ValidatePages(ValidationState state)
@@ -191,7 +185,6 @@ internal static class ThemeSourceValidator
             if (!root.TryGetProperty("pageDefinition", out var pageDefinition) || pageDefinition.ValueKind != JsonValueKind.Object)
             {
                 state.Errors.Add($"{relativePath} must contain a 'pageDefinition' object.");
-                ValidateLocalResourceReferences(state, pageFile, root);
                 continue;
             }
 
@@ -250,7 +243,6 @@ internal static class ThemeSourceValidator
                 }
             }
 
-            ValidateLocalResourceReferences(state, pageFile, root);
         }
     }
 
@@ -285,12 +277,10 @@ internal static class ThemeSourceValidator
             if (!root.TryGetProperty("nodes", out var nodesElement) || nodesElement.ValueKind != JsonValueKind.Array)
             {
                 state.Errors.Add($"{menuContext}.nodes must be an array.");
-                ValidateLocalResourceReferences(state, menuFile, root);
                 continue;
             }
 
             ValidateMenuNodes(state, relativePath, nodesElement, $"{menuContext}.nodes");
-            ValidateLocalResourceReferences(state, menuFile, root);
         }
     }
 
@@ -357,7 +347,6 @@ internal static class ThemeSourceValidator
         if (document is null)
             return;
 
-        ValidateLocalResourceReferences(state, filePath, document.RootElement);
     }
 
     private static void ValidateNodes(
@@ -685,56 +674,6 @@ internal static class ThemeSourceValidator
         if (themeId is { } parsedThemeId && parsedThemeId != state.ThemeId)
         {
             state.Errors.Add($"{context}.themeId must match theme.general.json theme.id '{state.ThemeId:D}'.");
-        }
-    }
-
-    private static void ValidateLocalResourceReferences(ValidationState state, string filePath, JsonElement element)
-    {
-        foreach (var resourcePath in EnumerateLocalResourcePaths(element))
-        {
-            var decodedPath = Uri.UnescapeDataString(resourcePath)
-                .Replace('/', Path.DirectorySeparatorChar);
-            var fullPath = Path.GetFullPath(Path.Combine(state.SourceDirectory, decodedPath));
-
-            if (!File.Exists(fullPath))
-            {
-                state.Errors.Add($"{state.GetRelativePath(filePath)} references missing resource '/dev/theme/{resourcePath}'.");
-            }
-        }
-    }
-
-    private static IEnumerable<string> EnumerateLocalResourcePaths(JsonElement element)
-    {
-        switch (element.ValueKind)
-        {
-            case JsonValueKind.Object:
-                foreach (var property in element.EnumerateObject())
-                {
-                    foreach (var resourcePath in EnumerateLocalResourcePaths(property.Value))
-                        yield return resourcePath;
-                }
-                break;
-
-            case JsonValueKind.Array:
-                foreach (var item in element.EnumerateArray())
-                {
-                    foreach (var resourcePath in EnumerateLocalResourcePaths(item))
-                        yield return resourcePath;
-                }
-                break;
-
-            case JsonValueKind.String:
-                var value = element.GetString();
-                if (string.IsNullOrWhiteSpace(value))
-                    yield break;
-
-                foreach (Match match in DevThemeResourcePattern.Matches(value))
-                {
-                    var resourcePath = match.Groups["path"].Value;
-                    if (!string.IsNullOrWhiteSpace(resourcePath))
-                        yield return resourcePath;
-                }
-                break;
         }
     }
 
