@@ -36,7 +36,11 @@ internal static partial class ThemeSourceValidator
         ".ai",
     };
 
-    public static void Validate(string sourceDirectory, ThemeMetadata themeMetadata, IReadOnlyCollection<ThemePackEntry> entries)
+    public static IReadOnlyList<string> Validate(
+        string sourceDirectory,
+        ThemeMetadata themeMetadata,
+        IReadOnlyCollection<ThemePackEntry> entries,
+        ThemeStylesScan styles)
     {
         if (!Guid.TryParse(themeMetadata.ThemeId, out var themeId))
             throw new ThemePackagerException("theme.general.json must contain a valid theme.id GUID.");
@@ -56,8 +60,11 @@ internal static partial class ThemeSourceValidator
         ValidateMenus(state);
         ValidatePendingRouteTargets(state);
 
+        state.Errors.AddRange(styles.Errors);
+        ValidateStyleRegistry(state, styles.Registry);
+
         if (state.Errors.Count == 0)
-            return;
+            return state.Warnings;
 
         throw new ThemePackagerException(
             "Theme validation failed:" + Environment.NewLine +
@@ -837,6 +844,10 @@ internal static partial class ThemeSourceValidator
         public Guid ThemeId { get; }
 
         public List<string> Errors { get; } = new();
+
+        public List<string> Warnings { get; } = new();
+
+        public HashSet<string> SkinCodes { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<Guid, string> ReusableComponents { get; } = new();
 

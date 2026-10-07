@@ -54,7 +54,7 @@ internal enum PackSourceKind
     Template = 1,
 }
 
-internal sealed record ThemePackEntry(string FullPath, string EntryName);
+internal sealed record ThemePackEntry(string FullPath, string EntryName, byte[]? Content = null);
 
 internal sealed record ThemeMetadata(string ThemeId, string ThemeName);
 

@@ -13,7 +13,8 @@ internal static class ThemeSourcePackager
     {
         var themeMetadata = ReadThemeMetadata(sourceDirectory);
         var entries = CollectEntries(sourceDirectory);
-        ThemeSourceValidator.Validate(sourceDirectory, themeMetadata, entries);
+        var styles = ThemeStylesProcessor.Process(sourceDirectory, entries);
+        var warnings = ThemeSourceValidator.Validate(sourceDirectory, themeMetadata, entries, styles);
 
         if (options.IsDryRun)
         {
@@ -25,7 +26,8 @@ internal static class ThemeSourcePackager
                 themeMetadata.ThemeName,
                 PackSourceKind.Theme,
                 Array.Empty<string>(),
-                Array.Empty<TemplatePackArtifact>());
+                Array.Empty<TemplatePackArtifact>(),
+                warnings);
         }
 
         var outputFile = ResolveOutputFile(options.OutputFile, themeMetadata.ThemeName);
@@ -41,11 +43,19 @@ internal static class ThemeSourcePackager
         {
             foreach (var entry in entries)
             {
-                ZipFileExtensions.CreateEntryFromFile(
-                    archive,
-                    entry.FullPath,
-                    entry.EntryName,
-                    CompressionLevel.Optimal);
+                if (entry.Content is null)
+                {
+                    ZipFileExtensions.CreateEntryFromFile(
+                        archive,
+                        entry.FullPath,
+                        entry.EntryName,
+                        CompressionLevel.Optimal);
+                    continue;
+                }
+
+                var generatedEntry = archive.CreateEntry(entry.EntryName, CompressionLevel.Optimal);
+                using var generatedStream = generatedEntry.Open();
+                generatedStream.Write(entry.Content, 0, entry.Content.Length);
             }
 
             var manifestEntry = archive.CreateEntry("manifest.json", CompressionLevel.Optimal);
@@ -63,7 +73,8 @@ internal static class ThemeSourcePackager
             themeMetadata.ThemeName,
             PackSourceKind.Theme,
             new[] { outputFile },
-            Array.Empty<TemplatePackArtifact>());
+            Array.Empty<TemplatePackArtifact>(),
+            warnings);
     }
 
     private static ThemeMetadata ReadThemeMetadata(string sourceDirectory)
@@ -195,6 +206,9 @@ internal static class ThemeSourcePackager
                 seo = File.Exists(seoPath) ? "theme.seo.json" : null,
                 marketing = File.Exists(marketingPath) ? "theme.marketing.json" : null,
                 content = File.Exists(contentPath) ? "theme.content.json" : null,
+                styles = entries.Any(entry => entry.EntryName == ThemeStylesProcessor.RegistryEntryName)
+                    ? ThemeStylesProcessor.RegistryEntryName
+                    : null,
                 pages = Directory.Exists(pagesDirectory)
                     ? Directory.EnumerateFiles(pagesDirectory, "*.json", SearchOption.TopDirectoryOnly)
                         .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)

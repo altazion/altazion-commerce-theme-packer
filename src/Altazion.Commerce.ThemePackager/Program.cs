@@ -30,6 +30,9 @@ internal static class Program
             var options = PackCommandOptions.Parse(args.Skip(1).ToArray());
             var result = ThemePackager.Pack(options);
 
+            foreach (var warning in result.Warnings ?? Array.Empty<string>())
+                Console.Error.WriteLine($"Warning: {warning}");
+
             if (options.IsDryRun)
             {
                 Console.WriteLine("Validation succeeded.");

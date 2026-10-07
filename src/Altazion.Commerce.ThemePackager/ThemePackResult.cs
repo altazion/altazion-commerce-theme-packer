@@ -8,4 +8,5 @@ internal sealed record ThemePackResult(
     string ThemeName,
     PackSourceKind SourceKind,
     IReadOnlyList<string> GeneratedArtifacts,
-    IReadOnlyList<TemplatePackArtifact> TemplateArtifacts);
+    IReadOnlyList<TemplatePackArtifact> TemplateArtifacts,
+    IReadOnlyList<string>? Warnings = null);

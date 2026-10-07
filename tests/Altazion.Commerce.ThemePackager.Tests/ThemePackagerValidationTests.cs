@@ -812,7 +812,7 @@ public sealed class ThemePackagerValidationTests
       ["dam/blog.json"] = ValidBlogDamJson,
     };
 
-    private const string ValidBlogArticleJson = """
+    internal const string ValidBlogArticleJson = """
     {
       "id": "blog-article",
       "name": "Article de blog",
@@ -840,7 +840,7 @@ public sealed class ThemePackagerValidationTests
     }
     """;
 
-    private static string SharedJsonWithSkin(string contentTypeId, string skinCode = "full", string secondSkinCode = "")
+    internal static string SharedJsonWithSkin(string contentTypeId, string skinCode = "full", string secondSkinCode = "")
     {
       var secondSkin = secondSkinCode.Length == 0
         ? string.Empty
@@ -934,7 +934,7 @@ public sealed class ThemePackagerValidationTests
     private static IReadOnlyDictionary<string, string> DamCollection(string fileName, string json)
       => new Dictionary<string, string> { [$"dam/{fileName}"] = json };
 
-    private sealed class TemporaryTheme : IDisposable
+    internal sealed class TemporaryTheme : IDisposable
     {
       private TemporaryTheme(string rootDirectory)
       {

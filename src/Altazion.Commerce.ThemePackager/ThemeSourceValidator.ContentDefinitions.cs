@@ -387,6 +387,9 @@ internal static partial class ThemeSourceValidator
             if (contentTypeId is not null)
                 EnsureContentTypeDeclared(state, $"{context}.config.contentTypeId", contentTypeId);
 
+            if (skinCode is not null)
+                state.SkinCodes.Add(skinCode);
+
             if (contentTypeId is not null && skinCode is not null)
                 RegisterKey($"{contentTypeId}/{skinCode}", context, skinKeys, state.Errors, "content skin");
         }
