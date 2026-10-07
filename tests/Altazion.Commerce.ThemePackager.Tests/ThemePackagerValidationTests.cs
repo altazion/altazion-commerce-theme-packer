@@ -505,6 +505,140 @@ public sealed class ThemePackagerValidationTests
   }
 
   [TestMethod]
+  public void Pack_rejects_content_type_without_id()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "name": "A", "columns": [ { "code": "title", "dataType": "Text" } ] }"""),
+      "is missing required property 'id'");
+
+  [TestMethod]
+  public void Pack_rejects_content_type_with_invalid_id()
+    => AssertPackRejected(
+      ContentType("Blog.json", """{ "id": "Blog", "name": "A", "columns": [ { "code": "title", "dataType": "Text" } ] }"""),
+      "Blog.json.id 'Blog' is invalid");
+
+  [TestMethod]
+  public void Pack_rejects_content_type_file_name_that_differs_from_its_id()
+    => AssertPackRejected(
+      ContentType("article.json", ValidBlogArticleJson),
+      "must be named 'blog-article.json'");
+
+  [TestMethod]
+  public void Pack_rejects_content_type_without_columns()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "id": "blog-article", "name": "A" }"""),
+      "columns must be an array with at least one column");
+
+  [TestMethod]
+  public void Pack_rejects_duplicate_column_codes_ignoring_case()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "id": "blog-article", "name": "A", "columns": [ { "code": "title", "dataType": "Text" }, { "code": "Title", "dataType": "Text" } ] }"""),
+      "Duplicate column code");
+
+  [TestMethod]
+  public void Pack_rejects_unsupported_column_data_type()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "id": "blog-article", "name": "A", "columns": [ { "code": "title", "dataType": "Number" } ] }"""),
+      "dataType 'Number' is not supported");
+
+  [TestMethod]
+  public void Pack_rejects_unknown_title_column_code()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "id": "blog-article", "name": "A", "titleColumnCode": "missing", "columns": [ { "code": "title", "dataType": "Text" } ] }"""),
+      "titleColumnCode 'missing' does not match any declared column");
+
+  [TestMethod]
+  public void Pack_rejects_group_referencing_unknown_column()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "id": "blog-article", "name": "A", "columns": [ { "code": "title", "dataType": "Text" } ], "groups": [ { "name": "G", "columns": [ "missing" ] } ] }"""),
+      "does not match any declared column");
+
+  [TestMethod]
+  public void Pack_rejects_extending_type_that_changes_more_than_columns()
+    => AssertPackRejected(
+      ContentType("products.json", """{ "id": "products", "extends": true, "name": "Produits", "columns": [ { "code": "pitch", "dataType": "Text" } ] }"""),
+      "is not allowed when 'extends' is true");
+
+  [TestMethod]
+  public void Pack_accepts_extending_type_that_only_adds_columns()
+    => AssertPackAccepted(
+      ContentType("products.json", """{ "id": "products", "extends": true, "columns": [ { "code": "pitch", "dataType": "Text" } ] }"""));
+
+  [TestMethod]
+  public void Pack_rejects_owner_declared_in_content_type_source()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "id": "blog-article", "name": "A", "definitionOwnerCode": "x", "columns": [ { "code": "title", "dataType": "Text" } ] }"""),
+      "definitionOwnerCode is set by the import");
+
+  [TestMethod]
+  public void Pack_rejects_external_app_code_declared_on_a_column()
+    => AssertPackRejected(
+      ContentType("blog-article.json", """{ "id": "blog-article", "name": "A", "columns": [ { "code": "title", "dataType": "Text", "externAppCode": "Altazion.Pim" } ] }"""),
+      "externAppCode is set by the import");
+
+  [TestMethod]
+  public void Pack_rejects_dam_collection_without_code()
+    => AssertPackRejected(
+      DamCollection("blog.json", """{ "name": "Blog" }"""),
+      "is missing required property 'code'");
+
+  [TestMethod]
+  public void Pack_rejects_dam_collection_file_name_that_differs_from_its_code()
+    => AssertPackRejected(
+      DamCollection("images.json", ValidBlogDamJson),
+      "must be named 'blog.json'");
+
+  [TestMethod]
+  public void Pack_rejects_unsupported_dam_kind()
+    => AssertPackRejected(
+      DamCollection("blog.json", """{ "code": "blog", "name": "Blog", "kind": "Videos" }"""),
+      "kind must be one of");
+
+  [TestMethod]
+  public void Pack_rejects_duplicate_dam_group_codes()
+    => AssertPackRejected(
+      DamCollection("blog.json", """{ "code": "blog", "name": "Blog", "groups": [ { "code": "cover" }, { "code": "Cover" } ] }"""),
+      "Duplicate DAM group code");
+
+  [TestMethod]
+  public void Pack_rejects_invalid_dam_group_mime_types()
+    => AssertPackRejected(
+      DamCollection("blog.json", """{ "code": "blog", "name": "Blog", "groups": [ { "code": "cover", "allowedMimeTypes": [ 12 ] } ] }"""),
+      "allowedMimeTypes must be an array of non-empty strings");
+
+  [TestMethod]
+  public void Pack_rejects_content_skin_pointing_to_unknown_content_type()
+    => AssertPackRejected(
+      new Dictionary<string, string>(),
+      "points to unknown content type 'blog-article'",
+      sharedJson: SharedJsonWithSkin("blog-article"));
+
+  [TestMethod]
+  public void Pack_accepts_content_skin_pointing_to_declared_content_type()
+    => AssertPackAccepted(
+      ContentType("blog-article.json", ValidBlogArticleJson),
+      sharedJson: SharedJsonWithSkin("blog-article"));
+
+  [TestMethod]
+  public void Pack_rejects_duplicate_content_skins()
+    => AssertPackRejected(
+      ContentType("blog-article.json", ValidBlogArticleJson),
+      "Duplicate content skin 'blog-article/full'",
+      sharedJson: SharedJsonWithSkin("blog-article", "full", secondSkinCode: "full"));
+
+  [TestMethod]
+  public void Pack_rejects_page_pointing_to_unknown_content_type()
+    => AssertPackRejected(
+      new Dictionary<string, string>(),
+      "pageDefinition.config.contentTypeId points to unknown content type 'blog-article'",
+      pageJson: PageJsonWithContentType("blog-article"));
+
+  [TestMethod]
+  public void Pack_accepts_page_pointing_to_declared_content_type()
+    => AssertPackAccepted(
+      ContentType("blog-article.json", ValidBlogArticleJson),
+      pageJson: PageJsonWithContentType("blog-article"));
+
+  [TestMethod]
   public void Pack_rejects_unwanted_asset_files()
   {
     using var theme = TemporaryTheme.Create(additionalFiles: new Dictionary<string, string>
@@ -674,9 +808,131 @@ public sealed class ThemePackagerValidationTests
     private static readonly IReadOnlyDictionary<string, string> ContentDefinitionFiles = new Dictionary<string, string>
     {
       ["theme.content.json"] = "{}",
-      ["content-types/blog-article.json"] = "{}",
-      ["dam/blog.json"] = "{}",
+      ["content-types/blog-article.json"] = ValidBlogArticleJson,
+      ["dam/blog.json"] = ValidBlogDamJson,
     };
+
+    private const string ValidBlogArticleJson = """
+    {
+      "id": "blog-article",
+      "name": "Article de blog",
+      "titleColumnCode": "title",
+      "columns": [
+        { "code": "title", "dataType": "Text" },
+        { "code": "publishedAt", "dataType": "Date" }
+      ],
+      "groups": [
+        { "name": "Contenu", "columns": [ "title", "publishedAt" ] }
+      ]
+    }
+    """;
+
+    private const string ValidBlogDamJson = """
+    {
+      "code": "blog",
+      "name": "Blog",
+      "kind": "BlogArticle",
+      "groups": [
+        { "code": "cover", "allowedMimeTypes": [ "image/jpeg", "image/png" ] }
+      ],
+      "properties": [ { "code": "credit" } ],
+      "folders": [ { "code": "covers" } ]
+    }
+    """;
+
+    private static string SharedJsonWithSkin(string contentTypeId, string skinCode = "full", string secondSkinCode = "")
+    {
+      var secondSkin = secondSkinCode.Length == 0
+        ? string.Empty
+        : $$"""
+          ,
+            {
+              "id": "20000000-0000-0000-0000-000000000003",
+              "themeId": "10000000-0000-0000-0000-000000000001",
+              "tenantId": 0,
+              "name": "Skin 2",
+              "componentType": "ContentSkin",
+              "isActive": true,
+              "revision": 1,
+              "requestedRenderMode": "sharedFragment",
+              "config": { "contentTypeId": "{{contentTypeId}}", "skinCode": "{{secondSkinCode}}" }
+            }
+          """;
+
+      return $$"""
+      {
+        "reusableComponents": [
+          {
+            "id": "20000000-0000-0000-0000-000000000001",
+            "themeId": "10000000-0000-0000-0000-000000000001",
+            "tenantId": 0,
+            "name": "Head assets",
+            "componentType": "AltazionSdkHead",
+            "isActive": true,
+            "revision": 1,
+            "requestedRenderMode": "sharedFragment",
+            "config": {}
+          },
+          {
+            "id": "20000000-0000-0000-0000-000000000002",
+            "themeId": "10000000-0000-0000-0000-000000000001",
+            "tenantId": 0,
+            "name": "Skin",
+            "componentType": "ContentSkin",
+            "isActive": true,
+            "revision": 1,
+            "requestedRenderMode": "sharedFragment",
+            "config": { "contentTypeId": "{{contentTypeId}}", "skinCode": "{{skinCode}}" }
+          }{{secondSkin}}
+        ]
+      }
+      """;
+    }
+
+    private static string PageJsonWithContentType(string contentTypeId)
+      => ValidPageJson.Replace(
+        "\"pageType\": \"Home\",",
+        $"\"pageType\": \"Home\", \"config\": {{ \"contentTypeId\": \"{contentTypeId}\" }},");
+
+    private static void AssertPackRejected(
+      IReadOnlyDictionary<string, string> files,
+      string expectedMessage,
+      string? sharedJson = null,
+      string? pageJson = null)
+    {
+      using var theme = TemporaryTheme.Create(pageJson: pageJson, sharedJson: sharedJson, additionalFiles: files);
+
+      var exception = Assert.ThrowsException<ThemePackagerException>(() => ThemePackager.Pack(new PackCommandOptions
+      {
+        SourceDirectory = theme.SourceDirectory,
+        OutputFile = Path.Combine(theme.RootDirectory, "rejected.altztheme"),
+      }));
+
+      StringAssert.Contains(exception.Message, expectedMessage);
+    }
+
+    private static void AssertPackAccepted(
+      IReadOnlyDictionary<string, string> files,
+      string? sharedJson = null,
+      string? pageJson = null)
+    {
+      using var theme = TemporaryTheme.Create(pageJson: pageJson, sharedJson: sharedJson, additionalFiles: files);
+
+      var outputFile = Path.Combine(theme.RootDirectory, "accepted.altztheme");
+      ThemePackager.Pack(new PackCommandOptions
+      {
+        SourceDirectory = theme.SourceDirectory,
+        OutputFile = outputFile,
+      });
+
+      Assert.IsTrue(File.Exists(outputFile));
+    }
+
+    private static IReadOnlyDictionary<string, string> ContentType(string fileName, string json)
+      => new Dictionary<string, string> { [$"content-types/{fileName}"] = json };
+
+    private static IReadOnlyDictionary<string, string> DamCollection(string fileName, string json)
+      => new Dictionary<string, string> { [$"dam/{fileName}"] = json };
 
     private sealed class TemporaryTheme : IDisposable
     {

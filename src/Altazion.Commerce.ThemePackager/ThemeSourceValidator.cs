@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace Altazion.Commerce.ThemePackager;
 
-internal static class ThemeSourceValidator
+internal static partial class ThemeSourceValidator
 {
     private const int MaxReusableComponentDepth = 3;
 
@@ -50,9 +50,9 @@ internal static class ThemeSourceValidator
         ValidateGenericJsonFile(state, Path.Combine(sourceDirectory, "theme.seo.json"));
         ValidateGenericJsonFile(state, Path.Combine(sourceDirectory, "theme.marketing.json"));
         ValidateGenericJsonFile(state, Path.Combine(sourceDirectory, "theme.content.json"));
-        ValidateContentDefinitionFiles(state, "content-types");
-        ValidateContentDefinitionFiles(state, "dam");
+        ValidateContentDefinitions(state);
         ValidatePages(state);
+        ValidateContentReferences(state);
         ValidateMenus(state);
         ValidatePendingRouteTargets(state);
 
@@ -354,19 +354,6 @@ internal static class ThemeSourceValidator
         if (document is null)
             return;
 
-    }
-
-    private static void ValidateContentDefinitionFiles(ValidationState state, string folderName)
-    {
-        var directory = Path.Combine(state.SourceDirectory, folderName);
-        if (!Directory.Exists(directory))
-            return;
-
-        foreach (var file in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly)
-                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
-        {
-            ValidateGenericJsonFile(state, file);
-        }
     }
 
     private static void ValidateNodes(
@@ -868,6 +855,10 @@ internal static class ThemeSourceValidator
         public Dictionary<string, string> MenuCodes { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<string, string> RouteSignatures { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public Dictionary<string, string> ContentTypes { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public Dictionary<string, string> DamCollections { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<(Guid DefinitionId, string Context)> PendingRouteTargets { get; } = new();
 
