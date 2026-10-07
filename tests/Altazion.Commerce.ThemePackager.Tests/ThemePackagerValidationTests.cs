@@ -1,4 +1,6 @@
+using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Altazion.Commerce.ThemePackager.Tests;
@@ -367,6 +369,142 @@ public sealed class ThemePackagerValidationTests
   }
 
   [TestMethod]
+  public void Pack_accepts_content_definition_files()
+  {
+    using var theme = TemporaryTheme.Create(additionalFiles: ContentDefinitionFiles);
+
+    var outputFile = Path.Combine(theme.RootDirectory, "content-definitions.altztheme");
+    ThemePackager.Pack(new PackCommandOptions
+    {
+      SourceDirectory = theme.SourceDirectory,
+      OutputFile = outputFile,
+    });
+
+    using var archive = ZipFile.OpenRead(outputFile);
+    Assert.IsNotNull(archive.GetEntry("theme.content.json"));
+    Assert.IsNotNull(archive.GetEntry("content-types/blog-article.json"));
+    Assert.IsNotNull(archive.GetEntry("dam/blog.json"));
+    Assert.IsNull(archive.GetEntry("assets/content-types/blog-article.json"));
+    Assert.IsNull(archive.GetEntry("assets/dam/blog.json"));
+  }
+
+  [TestMethod]
+  public void Pack_dry_run_accepts_content_definition_files()
+  {
+    using var theme = TemporaryTheme.Create(additionalFiles: ContentDefinitionFiles);
+
+    var outputFile = Path.Combine(theme.RootDirectory, "content-definitions-dry-run.altztheme");
+    var result = ThemePackager.Pack(new PackCommandOptions
+    {
+      SourceDirectory = theme.SourceDirectory,
+      OutputFile = outputFile,
+      IsDryRun = true,
+    });
+
+    Assert.AreEqual(string.Empty, result.OutputPath);
+    Assert.IsFalse(File.Exists(outputFile));
+  }
+
+  [TestMethod]
+  public void Pack_lists_content_definition_files_in_manifest()
+  {
+    using var theme = TemporaryTheme.Create(additionalFiles: ContentDefinitionFiles);
+
+    var outputFile = Path.Combine(theme.RootDirectory, "content-manifest.altztheme");
+    ThemePackager.Pack(new PackCommandOptions
+    {
+      SourceDirectory = theme.SourceDirectory,
+      OutputFile = outputFile,
+    });
+
+    using var archive = ZipFile.OpenRead(outputFile);
+    using var manifestReader = new StreamReader(archive.GetEntry("manifest.json")!.Open(), Encoding.UTF8);
+    using var manifest = JsonDocument.Parse(manifestReader.ReadToEnd());
+    var root = manifest.RootElement;
+    var files = root.GetProperty("files");
+
+    Assert.AreEqual(2, root.GetProperty("schemaVersion").GetInt32());
+    Assert.AreEqual("theme.content.json", files.GetProperty("content").GetString());
+    Assert.AreEqual("content-types/blog-article.json", files.GetProperty("contentTypes")[0].GetString());
+    Assert.AreEqual("dam/blog.json", files.GetProperty("damCollections")[0].GetString());
+  }
+
+  [TestMethod]
+  public void Pack_manifest_has_no_content_definition_entries_when_absent()
+  {
+    using var theme = TemporaryTheme.Create();
+
+    var outputFile = Path.Combine(theme.RootDirectory, "no-content-manifest.altztheme");
+    ThemePackager.Pack(new PackCommandOptions
+    {
+      SourceDirectory = theme.SourceDirectory,
+      OutputFile = outputFile,
+    });
+
+    using var archive = ZipFile.OpenRead(outputFile);
+    using var manifestReader = new StreamReader(archive.GetEntry("manifest.json")!.Open(), Encoding.UTF8);
+    using var manifest = JsonDocument.Parse(manifestReader.ReadToEnd());
+    var files = manifest.RootElement.GetProperty("files");
+
+    Assert.AreEqual(JsonValueKind.Null, files.GetProperty("content").ValueKind);
+    Assert.AreEqual(0, files.GetProperty("contentTypes").GetArrayLength());
+    Assert.AreEqual(0, files.GetProperty("damCollections").GetArrayLength());
+  }
+
+  [TestMethod]
+  public void Pack_rejects_nested_json_in_content_definition_folders()
+  {
+    using var theme = TemporaryTheme.Create(additionalFiles: new Dictionary<string, string>
+    {
+      ["content-types/sub/blog.json"] = "{}",
+    });
+
+    var exception = Assert.ThrowsException<ThemePackagerException>(() => ThemePackager.Pack(new PackCommandOptions
+    {
+      SourceDirectory = theme.SourceDirectory,
+      OutputFile = Path.Combine(theme.RootDirectory, "nested-content-definition.altztheme"),
+    }));
+
+    StringAssert.Contains(exception.Message, "content-types/sub/blog.json is not part of the supported theme pack structure");
+  }
+
+  [TestMethod]
+  public void Pack_rejects_invalid_json_in_content_definition_files()
+  {
+    using var theme = TemporaryTheme.Create(additionalFiles: new Dictionary<string, string>
+    {
+      ["dam/broken.json"] = "{",
+    });
+
+    var exception = Assert.ThrowsException<ThemePackagerException>(() => ThemePackager.Pack(new PackCommandOptions
+    {
+      SourceDirectory = theme.SourceDirectory,
+      OutputFile = Path.Combine(theme.RootDirectory, "broken-content-definition.altztheme"),
+    }));
+
+    StringAssert.Contains(exception.Message, "dam/broken.json is not valid JSON");
+  }
+
+  [TestMethod]
+  public void Pack_does_not_package_non_json_files_of_content_definition_folders_as_assets()
+  {
+    using var theme = TemporaryTheme.Create(additionalFiles: new Dictionary<string, string>
+    {
+      ["content-types/notes.txt"] = "notes",
+    });
+
+    var outputFile = Path.Combine(theme.RootDirectory, "content-notes.altztheme");
+    ThemePackager.Pack(new PackCommandOptions
+    {
+      SourceDirectory = theme.SourceDirectory,
+      OutputFile = outputFile,
+    });
+
+    using var archive = ZipFile.OpenRead(outputFile);
+    Assert.IsNull(archive.GetEntry("assets/content-types/notes.txt"));
+  }
+
+  [TestMethod]
   public void Pack_rejects_unwanted_asset_files()
   {
     using var theme = TemporaryTheme.Create(additionalFiles: new Dictionary<string, string>
@@ -532,6 +670,13 @@ public sealed class ThemePackagerValidationTests
       ]
     }
     """;
+
+    private static readonly IReadOnlyDictionary<string, string> ContentDefinitionFiles = new Dictionary<string, string>
+    {
+      ["theme.content.json"] = "{}",
+      ["content-types/blog-article.json"] = "{}",
+      ["dam/blog.json"] = "{}",
+    };
 
     private sealed class TemporaryTheme : IDisposable
     {

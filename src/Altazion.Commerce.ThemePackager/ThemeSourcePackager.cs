@@ -6,6 +6,9 @@ namespace Altazion.Commerce.ThemePackager;
 
 internal static class ThemeSourcePackager
 {
+    private const string ContentTypesFolderName = "content-types";
+    private const string DamFolderName = "dam";
+
     public static ThemePackResult Pack(string sourceDirectory, PackCommandOptions options)
     {
         var themeMetadata = ReadThemeMetadata(sourceDirectory);
@@ -110,6 +113,7 @@ internal static class ThemeSourcePackager
         AddIfExists(entries, Path.Combine(sourceDirectory, "theme.shared.json"), "theme.shared.json");
         AddIfExists(entries, Path.Combine(sourceDirectory, "theme.seo.json"), "theme.seo.json");
         AddIfExists(entries, Path.Combine(sourceDirectory, "theme.marketing.json"), "theme.marketing.json");
+        AddIfExists(entries, Path.Combine(sourceDirectory, "theme.content.json"), "theme.content.json");
 
         var pagesDirectory = Path.Combine(sourceDirectory, "pages");
         if (Directory.Exists(pagesDirectory))
@@ -131,12 +135,20 @@ internal static class ThemeSourcePackager
             }
         }
 
+        var contentTypesDirectory = Path.Combine(sourceDirectory, ContentTypesFolderName);
+        AddJsonFolderEntries(entries, contentTypesDirectory, ContentTypesFolderName);
+
+        var damDirectory = Path.Combine(sourceDirectory, DamFolderName);
+        AddJsonFolderEntries(entries, damDirectory, DamFolderName);
+
         foreach (var assetFile in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories)
                      .Where(path => !string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase))
                      .Where(path => !string.Equals(Path.GetFileName(path), ".gitignore", StringComparison.OrdinalIgnoreCase))
                      .Where(path => !IsUnderDirectory(path, Path.Combine(sourceDirectory, "dev")))
                      .Where(path => !IsUnderDirectory(path, pagesDirectory))
                      .Where(path => !IsUnderDirectory(path, menusDirectory))
+                     .Where(path => !IsUnderDirectory(path, contentTypesDirectory))
+                     .Where(path => !IsUnderDirectory(path, damDirectory))
                      .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
         {
             var relativePath = Path.GetRelativePath(sourceDirectory, assetFile)
@@ -149,17 +161,30 @@ internal static class ThemeSourcePackager
         return entries;
     }
 
+    private static void AddJsonFolderEntries(List<ThemePackEntry> entries, string directory, string folderName)
+    {
+        if (!Directory.Exists(directory))
+            return;
+
+        foreach (var file in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly)
+                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            entries.Add(new ThemePackEntry(file, $"{folderName}/{Path.GetFileName(file)}"));
+        }
+    }
+
     private static string BuildManifestJson(string sourceDirectory, IReadOnlyCollection<ThemePackEntry> entries, ThemeMetadata themeMetadata)
     {
         var sharedPath = Path.Combine(sourceDirectory, "theme.shared.json");
         var seoPath = Path.Combine(sourceDirectory, "theme.seo.json");
         var marketingPath = Path.Combine(sourceDirectory, "theme.marketing.json");
+        var contentPath = Path.Combine(sourceDirectory, "theme.content.json");
         var pagesDirectory = Path.Combine(sourceDirectory, "pages");
         var menusDirectory = Path.Combine(sourceDirectory, "menus");
 
         var manifest = new
         {
-            schemaVersion = 1,
+            schemaVersion = 2,
             themeId = themeMetadata.ThemeId,
             themeName = themeMetadata.ThemeName,
             packedAt = DateTimeOffset.UtcNow.ToString("O"),
@@ -169,6 +194,7 @@ internal static class ThemeSourcePackager
                 shared = File.Exists(sharedPath) ? "theme.shared.json" : null,
                 seo = File.Exists(seoPath) ? "theme.seo.json" : null,
                 marketing = File.Exists(marketingPath) ? "theme.marketing.json" : null,
+                content = File.Exists(contentPath) ? "theme.content.json" : null,
                 pages = Directory.Exists(pagesDirectory)
                     ? Directory.EnumerateFiles(pagesDirectory, "*.json", SearchOption.TopDirectoryOnly)
                         .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
@@ -181,6 +207,14 @@ internal static class ThemeSourcePackager
                         .Select(path => $"menus/{Path.GetFileName(path)}")
                         .ToArray()
                     : Array.Empty<string>(),
+                contentTypes = entries
+                    .Where(entry => entry.EntryName.StartsWith(ContentTypesFolderName + "/", StringComparison.Ordinal))
+                    .Select(entry => entry.EntryName)
+                    .ToArray(),
+                damCollections = entries
+                    .Where(entry => entry.EntryName.StartsWith(DamFolderName + "/", StringComparison.Ordinal))
+                    .Select(entry => entry.EntryName)
+                    .ToArray(),
                 assets = entries
                     .Where(entry => entry.EntryName.StartsWith("assets/", StringComparison.Ordinal))
                     .Select(entry => entry.EntryName)

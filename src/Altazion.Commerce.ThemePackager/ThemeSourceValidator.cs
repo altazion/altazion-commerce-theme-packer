@@ -17,6 +17,7 @@ internal static class ThemeSourceValidator
         "theme.shared.json",
         "theme.seo.json",
         "theme.marketing.json",
+        "theme.content.json",
     };
 
     private static readonly HashSet<string> DisallowedAssetNames = new(StringComparer.OrdinalIgnoreCase)
@@ -48,6 +49,9 @@ internal static class ThemeSourceValidator
         ValidateSharedComponents(state);
         ValidateGenericJsonFile(state, Path.Combine(sourceDirectory, "theme.seo.json"));
         ValidateGenericJsonFile(state, Path.Combine(sourceDirectory, "theme.marketing.json"));
+        ValidateGenericJsonFile(state, Path.Combine(sourceDirectory, "theme.content.json"));
+        ValidateContentDefinitionFiles(state, "content-types");
+        ValidateContentDefinitionFiles(state, "dam");
         ValidatePages(state);
         ValidateMenus(state);
         ValidatePendingRouteTargets(state);
@@ -69,7 +73,10 @@ internal static class ThemeSourceValidator
             if (AllowedRootJsonFiles.Contains(relativePath))
                 continue;
 
-            if (IsTopLevelCollectionFile(relativePath, "pages") || IsTopLevelCollectionFile(relativePath, "menus"))
+            if (IsTopLevelCollectionFile(relativePath, "pages")
+                || IsTopLevelCollectionFile(relativePath, "menus")
+                || IsTopLevelCollectionFile(relativePath, "content-types")
+                || IsTopLevelCollectionFile(relativePath, "dam"))
                 continue;
 
             state.Errors.Add($"{relativePath} is not part of the supported theme pack structure.");
@@ -347,6 +354,19 @@ internal static class ThemeSourceValidator
         if (document is null)
             return;
 
+    }
+
+    private static void ValidateContentDefinitionFiles(ValidationState state, string folderName)
+    {
+        var directory = Path.Combine(state.SourceDirectory, folderName);
+        if (!Directory.Exists(directory))
+            return;
+
+        foreach (var file in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly)
+                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            ValidateGenericJsonFile(state, file);
+        }
     }
 
     private static void ValidateNodes(
