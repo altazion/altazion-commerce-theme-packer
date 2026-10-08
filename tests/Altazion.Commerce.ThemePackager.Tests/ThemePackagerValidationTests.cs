@@ -840,8 +840,9 @@ public sealed class ThemePackagerValidationTests
     }
     """;
 
-    internal static string SharedJsonWithSkin(string contentTypeId, string skinCode = "full", string secondSkinCode = "")
+    internal static string SharedJsonWithSkin(string contentTypeId, string skinCode = "full", string secondSkinCode = "", string? template = "<article>{{ item.title }}</article>")
     {
+      var templateProperty = template is null ? string.Empty : $", \"template\": \"{template.Replace("\"", "\\\"")}\"";
       var secondSkin = secondSkinCode.Length == 0
         ? string.Empty
         : $$"""
@@ -855,7 +856,7 @@ public sealed class ThemePackagerValidationTests
               "isActive": true,
               "revision": 1,
               "requestedRenderMode": "sharedFragment",
-              "config": { "contentTypeId": "{{contentTypeId}}", "skinCode": "{{secondSkinCode}}" }
+              "config": { "contentTypeId": "{{contentTypeId}}", "skinCode": "{{secondSkinCode}}"{{templateProperty}} }
             }
           """;
 
@@ -882,7 +883,7 @@ public sealed class ThemePackagerValidationTests
             "isActive": true,
             "revision": 1,
             "requestedRenderMode": "sharedFragment",
-            "config": { "contentTypeId": "{{contentTypeId}}", "skinCode": "{{skinCode}}" }
+            "config": { "contentTypeId": "{{contentTypeId}}", "skinCode": "{{skinCode}}"{{templateProperty}} }
           }{{secondSkin}}
         ]
       }

@@ -14,7 +14,8 @@ internal static class ThemeSourcePackager
         var themeMetadata = ReadThemeMetadata(sourceDirectory);
         var entries = CollectEntries(sourceDirectory);
         var styles = ThemeStylesProcessor.Process(sourceDirectory, entries);
-        var warnings = ThemeSourceValidator.Validate(sourceDirectory, themeMetadata, entries, styles);
+        var skins = ThemeSkinsProcessor.Process(sourceDirectory, entries);
+        var warnings = ThemeSourceValidator.Validate(sourceDirectory, themeMetadata, entries, styles, skins);
 
         if (options.IsDryRun)
         {
@@ -160,6 +161,7 @@ internal static class ThemeSourcePackager
                      .Where(path => !IsUnderDirectory(path, menusDirectory))
                      .Where(path => !IsUnderDirectory(path, contentTypesDirectory))
                      .Where(path => !IsUnderDirectory(path, damDirectory))
+                     .Where(path => !IsUnderDirectory(path, Path.Combine(sourceDirectory, ThemeSkinsProcessor.FolderName)))
                      .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
         {
             var relativePath = Path.GetRelativePath(sourceDirectory, assetFile)

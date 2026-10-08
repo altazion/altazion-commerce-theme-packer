@@ -20,6 +20,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fluid.Core" Version="2.40.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="package-readme.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>

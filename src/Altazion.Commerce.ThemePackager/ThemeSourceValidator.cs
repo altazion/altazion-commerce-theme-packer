@@ -40,7 +40,8 @@ internal static partial class ThemeSourceValidator
         string sourceDirectory,
         ThemeMetadata themeMetadata,
         IReadOnlyCollection<ThemePackEntry> entries,
-        ThemeStylesScan styles)
+        ThemeStylesScan styles,
+        ThemeSkinsScan skins)
     {
         if (!Guid.TryParse(themeMetadata.ThemeId, out var themeId))
             throw new ThemePackagerException("theme.general.json must contain a valid theme.id GUID.");
@@ -61,6 +62,7 @@ internal static partial class ThemeSourceValidator
         ValidatePendingRouteTargets(state);
 
         state.Errors.AddRange(styles.Errors);
+        state.Errors.AddRange(skins.Errors);
         ValidateStyleRegistry(state, styles.Registry);
 
         if (state.Errors.Count == 0)
