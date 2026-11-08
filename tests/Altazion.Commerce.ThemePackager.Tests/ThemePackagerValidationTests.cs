@@ -27,6 +27,19 @@ public sealed class ThemePackagerValidationTests
     }
 
     [TestMethod]
+    public void Pack_keeps_legacy_validation_for_unrelated_root_manifest()
+    {
+        using var theme = TemporaryTheme.Create();
+        File.WriteAllText(Path.Combine(theme.SourceDirectory, "manifest.json"), "{\"packageKind\":\"theme\"}");
+        var exception = Assert.ThrowsException<ThemePackagerException>(() => ThemePackager.Pack(new PackCommandOptions
+        {
+            SourceDirectory = theme.SourceDirectory,
+            OutputFile = Path.Combine(theme.RootDirectory, "valid.altztheme"),
+        }));
+        StringAssert.Contains(exception.Message, "manifest.json is not part of the supported theme pack structure");
+    }
+
+    [TestMethod]
     public void Pack_dry_run_validates_without_creating_archive()
     {
         using var theme = TemporaryTheme.Create();

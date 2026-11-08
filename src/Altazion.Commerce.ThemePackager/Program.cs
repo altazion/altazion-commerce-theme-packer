@@ -18,7 +18,8 @@ internal static class Program
             return 0;
         }
 
-        if (!string.Equals(args[0], "pack", StringComparison.OrdinalIgnoreCase))
+        var signage = string.Equals(args[0], "pack-signage", StringComparison.OrdinalIgnoreCase);
+        if (!signage && !string.Equals(args[0], "pack", StringComparison.OrdinalIgnoreCase))
         {
             Console.Error.WriteLine($"Unknown command '{args[0]}'.");
             PrintHelp();
@@ -28,7 +29,7 @@ internal static class Program
         try
         {
             var options = PackCommandOptions.Parse(args.Skip(1).ToArray());
-            var result = ThemePackager.Pack(options);
+            var result = signage ? ThemePackager.PackSignage(options) : ThemePackager.Pack(options);
 
             foreach (var warning in result.Warnings ?? Array.Empty<string>())
                 Console.Error.WriteLine($"Warning: {warning}");
@@ -40,12 +41,20 @@ internal static class Program
                 Console.WriteLine($"Source: {result.ThemeName} ({result.ThemeId})");
                 if (result.SourceKind == PackSourceKind.Template)
                     Console.WriteLine($"Profiles: {result.TemplateArtifacts.Count}");
-                Console.WriteLine($"Files: {result.EntryCount} + manifests");
+                Console.WriteLine(result.SourceKind == PackSourceKind.Signage
+                    ? $"Files: {result.EntryCount}"
+                    : $"Files: {result.EntryCount} + manifests");
                 Console.WriteLine("Dry run: no archive produced.");
                 return 0;
             }
 
-            if (result.SourceKind == PackSourceKind.Theme)
+            if (result.SourceKind == PackSourceKind.Signage)
+            {
+                Console.WriteLine($"Pack created: {result.OutputPath}");
+                Console.WriteLine($"Signage: {result.ThemeName} ({result.ThemeId})");
+                Console.WriteLine($"Files: {result.EntryCount}; ZIP size: {result.Size} bytes");
+            }
+            else if (result.SourceKind == PackSourceKind.Theme)
             {
                 Console.WriteLine($"Pack created: {result.OutputPath}");
                 Console.WriteLine($"Theme: {result.ThemeName} ({result.ThemeId})");
@@ -91,12 +100,14 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  altazion-theme-pack pack --source <path> [--output <file>] [--dry-run]");
+        Console.WriteLine("  altazion-theme-pack pack-signage --source <compiled-folder> [--output <file>] [--dry-run]");
         Console.WriteLine("  altazion-theme-pack --version");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  -s, --source   Source folder containing either theme.general.json or template.json");
-        Console.WriteLine("  -o, --output   Output file path for a theme source, or output directory for a template source");
+        Console.WriteLine("  -s, --source   Source folder containing theme.general.json, template.json or a signage manifest.json");
+        Console.WriteLine("  -o, --output   Output file for theme or signage, or output directory for a template");
         Console.WriteLine("      --dry-run  Validate the source without producing archives");
+        Console.WriteLine("  pack-signage packages compiled files; the Core-Business importer performs final validation.");
         Console.WriteLine("  -h, --help     Show help");
     }
 }
